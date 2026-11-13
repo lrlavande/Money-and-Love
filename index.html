@@ -20,6 +20,9 @@
 body[data-theme=lavande]{--acc:#a88bd0;--acc-dark:#6f5590;--acc-deep:#4e3a6a;--acc-soft:#f0e9f8;--acc-pale:#f7f2fc;--acc-border:#e4d7f0;--bg:#faf6fd;--line:#ece2f3;}
 body[data-theme=peche]{--acc:#e0957a;--acc-dark:#c06e55;--acc-deep:#8f4c39;--acc-soft:#fbe9e2;--acc-pale:#fdf4f0;--acc-border:#f3d8cd;--bg:#fdf8f5;--line:#f3e6df;}
 body[data-theme=ocean]{--acc:#6b9bd1;--acc-dark:#44729f;--acc-deep:#2f5277;--acc-soft:#e4eef8;--acc-pale:#f2f7fc;--acc-border:#d3e2f2;--bg:#f6f9fd;--line:#e2eaf3;}
+body[data-theme=sable]{--acc:#c9a46a;--acc-dark:#9c7a42;--acc-deep:#6e552c;--acc-soft:#f6eedf;--acc-pale:#fbf7ef;--acc-border:#ecdcc0;--bg:#fcfaf5;--line:#efe6d6;}
+body[data-theme=prune]{--acc:#8e5a7e;--acc-dark:#6d3f5f;--acc-deep:#4d2a43;--acc-soft:#f1e5ee;--acc-pale:#f8f1f6;--acc-border:#e3cfdd;--bg:#fbf7fa;--line:#eee2ea;}
+body[data-theme=ardoise]{--acc:#6b7a8f;--acc-dark:#4a5869;--acc-deep:#323d4a;--acc-soft:#e7ebf0;--acc-pale:#f3f5f8;--acc-border:#d5dce5;--bg:#f7f8fa;--line:#e3e7ec;}
 body[data-theme=rose]{--acc:#d98aa8;--acc-dark:#b5607f;--acc-deep:#84435d;--acc-soft:#f8e6ed;--acc-pale:#fcf3f6;--acc-border:#f0d3de;--bg:#fdf7f9;--line:#f2e4ea;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;-webkit-text-size-adjust:100%;letter-spacing:-.01em;}
@@ -199,7 +202,7 @@ textarea{resize:vertical;min-height:70px;}
 <div class="wrap">
   <header class="top">
     <div style="min-width:0;">
-      <div class="hello" id="hello">Coucou !</div>
+      <div class="hello" id="hello" onclick="openSettings()" style="cursor:pointer;">Coucou !</div>
       <div class="top-sub" id="top-sub" onclick="openSettings('duo')"></div>
     </div>
     <button class="icon-btn" onclick="openSettings()" aria-label="Réglages">&#x2699;</button>
@@ -239,10 +242,10 @@ textarea{resize:vertical;min-height:70px;}
 
 <script>
 const KEY="duo-budget-v1";
-const ACC={perso:"Mon compte à vue",commun:"Compte commun",epargne:"Épargne commune"};
+const ACC={perso:"Mon compte à vue",commun:"Compte commun",epargne:"Épargne long terme"};
 const ACC_S={perso:"Mon compte",commun:"Commun",epargne:"Épargne"};
 const TYPE_L={depense:"Dépense",revenu:"Revenu",virement:"Virement"};
-const THEMES={sauge:"#6f9c86",lavande:"#a88bd0",peche:"#e0957a",ocean:"#6b9bd1",rose:"#d98aa8"};
+const THEMES={sauge:"#6f9c86",lavande:"#a88bd0",peche:"#e0957a",ocean:"#6b9bd1",rose:"#d98aa8",sable:"#c9a46a",prune:"#8e5a7e",ardoise:"#6b7a8f"};
 const COLORS=["#6f9c86","#d9a860","#c4566c","#6b9bd1","#a88bd0","#e0957a","#4f8a8b","#d98aa8","#8e9b5a","#7a6aa8"];
 const pad=n=>String(n).padStart(2,"0");
 const isoOf=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
@@ -264,43 +267,46 @@ const $=s=>document.querySelector(s);
 
 const DEF_CATS=[
   ["sal","Salaire","perso","Revenus","revenu"],
-  ["prime","Primes & extras","perso","Revenus","revenu"],
-  ["remb","Remboursements","perso","Revenus","revenu"],
+  ["cheq","Chèques repas","perso","Revenus","revenu"],
   ["v_com","Vers le compte commun","perso","Mise en commun","virement","commun"],
-  ["v_ep","Vers l'épargne commune","perso","Mise en commun","virement","epargne"],
-  ["transp","Transport","perso","Quotidien","depense"],
-  ["sante","Santé","perso","Quotidien","depense"],
-  ["beaute","Beauté / hygiène","perso","Quotidien","depense"],
-  ["vet","Vêtements","perso","Quotidien","depense"],
-  ["sortie","Sorties & restos","perso","Plaisirs","depense"],
-  ["shop","Shopping","perso","Plaisirs","depense"],
-  ["loisir","Loisirs & sport","perso","Plaisirs","depense"],
-  ["cadeau","Cadeaux","perso","Plaisirs","depense"],
-  ["tel","Téléphone","perso","Charges perso","depense"],
-  ["abo","Abonnements","perso","Charges perso","depense"],
-  ["assur_p","Assurances perso","perso","Charges perso","depense"],
-  ["impr","Imprévus","perso","Imprévus","depense"],
-  ["loyer","Loyer / crédit","commun","Logement","depense"],
-  ["energie","Énergie","commun","Logement","depense"],
-  ["eau","Eau","commun","Logement","depense"],
-  ["internet","Internet & TV","commun","Logement","depense"],
-  ["assur_h","Assurance habitation","commun","Logement","depense"],
-  ["courses","Courses","commun","Maison","depense"],
-  ["entretien","Maison & entretien","commun","Maison","depense"],
-  ["resto2","Restos & sorties à deux","commun","Ensemble","depense"],
-  ["vacances","Vacances & week-ends","commun","Ensemble","depense"],
-  ["animaux","Animaux","commun","Ensemble","depense"],
-  ["voiture","Voiture & essence","commun","Voiture","depense"],
+  ["v_ep","Vers l'épargne long terme","perso","Mise en commun","virement","epargne"],
+  ["assur_v","Assurance voiture","perso","Voiture","depense",null,"fixe"],
+  ["entretien_v","Entretien voiture","perso","Voiture","depense",null,"fixe"],
+  ["taxe_v","Taxe voiture","perso","Voiture","depense",null,"fixe"],
+  ["pneus","Pneus","perso","Voiture","depense",null,"fixe"],
+  ["beaute","Beauté","perso","Divertissement","depense",null,"variable"],
+  ["coiffeur","Coiffeur","perso","Divertissement","depense",null,"variable"],
+  ["vet","Vêtements","perso","Divertissement","depense",null,"variable"],
+  ["sport","Sports","perso","Divertissement","depense",null,"variable"],
+  ["fun_perso","Amusement perso","perso","Divertissement","depense",null,"variable"],
+  ["urgence","Fonds d'urgence","perso","Sécurité","depense",null,"variable"],
+  ["loyer","Loyer","commun","Logement","depense",null,"fixe"],
+  ["charges","Charges","commun","Logement","depense",null,"fixe"],
+  ["internet","Internet & téléphone","commun","Logement","depense",null,"fixe"],
+  ["iptv","IPTV","commun","Logement","depense",null,"variable"],
+  ["courses","Courses","commun","Logement","depense",null,"fixe"],
+  ["meubles","Meubles","commun","Logement","depense",null,"variable"],
+  ["assur_h","Assurance habitation","commun","Logement","depense",null,"fixe"],
+  ["essence","Essence","commun","Voiture","depense",null,"fixe"],
+  ["pv","Contraventions","commun","Voiture","depense",null,"variable"],
+  ["fun2","Amusement à deux","commun","Divertissement","depense",null,"fixe"],
+  ["vacances","Vacances","commun","Divertissement","depense",null,"variable"],
+  ["mutuelle","Mutuelles","commun","Sécurité","depense",null,"fixe"],
   ["c_rev","Autres entrées","commun","Entrées","revenu"],
-  ["c_v_ep","Vers l'épargne commune","commun","Vers l'épargne","virement","epargne"],
+  ["c_v_ep","Vers l'épargne long terme","commun","Vers l'épargne","virement","epargne"],
   ["interets","Intérêts","epargne","Entrées","revenu"],
-  ["projet","Retrait pour un projet","epargne","Sorties","depense"],
+  ["projet","Retrait pour un projet","epargne","Sorties","depense",null,"variable"],
   ["ep_v_com","Retour vers le commun","epargne","Sorties","virement","commun"]
 ];
+const PRESETS={
+  commun:{loyer:800,charges:177,internet:67,essence:600,courses:350,fun2:300,assur_h:28,mutuelle:47,pv:100,meubles:80,iptv:22.61,vacances:350},
+  marion:{assur_v:102,entretien_v:58.33,taxe_v:25,pneus:16.67,beaute:30,urgence:150,fun_perso:250},
+  bilal:{assur_v:111,entretien_v:58.33,taxe_v:25,pneus:33.33,sport:20,urgence:150,coiffeur:50,fun_perso:250}
+};
 function blank(){
   const m=monthOf(today());
   return {v:1,me:{id:uid(),name:""},partnerName:"",theme:"sauge",
-    categories:DEF_CATS.map(([id,name,account,section,type,to])=>({id,name,account,section,type,to:to||null})),
+    categories:DEF_CATS.map(([id,name,account,section,type,to,nature])=>({id,name,account,section,type,to:to||null,nature:type==="depense"?(nature||"variable"):null})),
     budgets:{},tx:[],start:{month:m,perso:"",commun:"",epargne:""},
     goal:{label:"Notre épargne",total:5000,monthly:200,startMonth:m,overrides:{}},
     notes:{},bank:{},partner:null};
@@ -365,6 +371,7 @@ const hasSalary=who=>perInfo(who||"me").length>0;
 const dShort=iso=>new Date(iso+"T12:00:00").toLocaleDateString("fr-BE",{day:"numeric",month:"short"}).replace(".","");
 const perRange=(m,who)=>`${dShort(perStart(m,who))} → ${dShort(perEnd(m,who))}`;
 
+const natureOf=t=>t.nature||((catOf(t.cat,t.who)||{}).nature)||"variable";
 const myName=()=>S.me.name||"Moi";
 const pName=()=>S.partnerName||(S.partner&&S.partner.name)||"Partenaire";
 const whoName=w=>w==="partner"?pName():myName();
@@ -601,7 +608,7 @@ function lineHTML(t,opts){
   return `<div class="line" onclick="editLine('${t.id}','${t.who}')">
     <div class="d"><b>${d.getDate()}</b><span>${d.toLocaleDateString("fr-BE",{month:"short"}).replace(".","")}</span></div>
     <div class="m"><div class="t">${esc(title)}</div>
-      <div class="c"><span class="tag ${t.type}">${TYPE_L[t.type]}</span>${S.partner?`<span class="tag who">${esc(whoName(t.who))}</span>`:""}${esc(sub.join(" · "))}</div></div>
+      <div class="c"><span class="tag ${t.type}">${TYPE_L[t.type]}</span>${t.type==="depense"?`<span class="tag" style="background:var(--acc-pale);color:var(--muted);border:1px solid var(--line);">${natureOf(t)==="fixe"?"Fixe":"Variable"}</span>`:""}${S.partner?`<span class="tag who">${esc(whoName(t.who))}</span>`:""}${esc(sub.join(" · "))}</div></div>
     <div class="a ${cls}">${amt}</div></div>`;
 }
 function editLine(id,who){
@@ -669,6 +676,7 @@ function renderCatForm(){
   if(secs.length) html+=`<div class="chips" style="margin-top:8px;">${secs.map(s=>`<button type="button" class="chip${s===CF.section?" on":""}" onclick="cfSec(${esc(JSON.stringify(s))})">${esc(s)}</button>`).join("")}</div>`;
   if(CF.isNew) html+=`<label class="lbl">Compte</label><div class="chips">${["perso","commun","epargne"].map(a=>`<button type="button" class="chip${a===CF.account?" on":""}" onclick="cfSet('account','${a}')">${ACC_S[a]}</button>`).join("")}</div>`;
   html+=`<label class="lbl">C'est plutôt...</label><div class="seg" style="margin:0;">${["depense","revenu","virement"].map(t=>`<button type="button" class="${t===CF.type?"on":""}" onclick="cfSet('type','${t}')">${TYPE_L[t]}</button>`).join("")}</div>`;
+  if(CF.type==="depense") html+=`<label class="lbl">Fixe ou variable ?</label><div class="seg" style="margin:0;">${[["fixe","Fixe"],["variable","Variable"]].map(([k,l])=>`<button type="button" class="${(CF.nature||"variable")===k?"on":""}" onclick="cfSet('nature','${k}')">${l}</button>`).join("")}</div><div class="muted" style="margin-top:4px;">Fixe = le même montant chaque mois (loyer, assurance...). Variable = ça bouge (resto, vêtements...).</div>`;
   if(CF.type==="virement") html+=`<label class="lbl">Vers</label><div class="chips">${others.map(a=>`<button type="button" class="chip${a===CF.to?" on":""}" onclick="cfSet('to','${a}')">${a==="perso"?"Mon compte":ACC[a]}</button>`).join("")}</div>`;
   html+=`<label class="lbl">${CF.type==="depense"?"Budget par mois":"Montant prévu par mois"} (optionnel)</label><input id="cf-bud" type="text" inputmode="decimal" value="${CF.budget||""}" placeholder="0 €"/>`;
   html+=`<div class="err" id="cf-err"></div><button class="btn" style="margin-top:16px;" onclick="saveCatForm()">Enregistrer</button>`;
@@ -686,8 +694,8 @@ function saveCatForm(){
   if(!name){err.textContent="Donne un nom à la catégorie";err.classList.add("show");return;}
   if(S.categories.some(c=>!c.archived&&c.account===CF.account&&c.name.toLowerCase()===name.toLowerCase()&&c.id!==CF.id)){err.textContent="Cette catégorie existe déjà sur ce compte";err.classList.add("show");return;}
   let id=CF.id;
-  if(CF.isNew){id="c"+uid();S.categories.push({id,name,account:CF.account,section:sec,type:CF.type,to:CF.type==="virement"?CF.to:null});}
-  else{const c=myCat(id);Object.assign(c,{name,section:sec,type:CF.type,to:CF.type==="virement"?CF.to:null});}
+  if(CF.isNew){id="c"+uid();S.categories.push({id,name,account:CF.account,section:sec,type:CF.type,to:CF.type==="virement"?CF.to:null,nature:CF.type==="depense"?(CF.nature||"variable"):null});}
+  else{const c=myCat(id);Object.assign(c,{name,section:sec,type:CF.type,to:CF.type==="virement"?CF.to:null,nature:CF.type==="depense"?(CF.nature||"variable"):null});}
   const nb=num(CF.budget),ob=budgetOf(myCat(id),curMonth,"me");
   if(nb!==ob) setBudget(id,curMonth,nb);
   save();
@@ -713,10 +721,10 @@ let D=null,TXRET=null;
 function defaultDate(){const c=curPer();return curMonth===c?today():(curMonth<c?perEnd(curMonth):perStart(curMonth));}
 function openTx(o,ret){
   TXRET=ret||null;
-  if(o&&o.id){const t=S.tx.find(x=>x.id===o.id);if(!t)return;D={...t,amount:String(t.amount).replace(".",",")};}
+  if(o&&o.id){const t=S.tx.find(x=>x.id===o.id);if(!t)return;D={...t,nature:natureOf({...t,who:"me"}),amount:String(t.amount).replace(".",",")};}
   else{
     const c=o&&o.cat?myCat(o.cat):null;
-    D={id:null,account:(o&&o.account)||curAcc,cat:c?c.id:null,type:c?c.type:"depense",to:c&&c.type==="virement"?c.to:null,date:defaultDate(),amount:"",comment:""};
+    D={id:null,account:(o&&o.account)||curAcc,cat:c?c.id:null,type:c?c.type:"depense",to:c&&c.type==="virement"?c.to:null,nature:(c&&c.nature)||"variable",date:defaultDate(),amount:"",comment:""};
   }
   renderTxForm();
   if(!D.id) setTimeout(()=>{const a=$("#f-amt");if(a)a.focus();},280);
@@ -729,6 +737,7 @@ function renderTxForm(){
   html+=`<input id="f-amt" class="amount-in" type="text" inputmode="decimal" placeholder="0,00 €" autocomplete="off" value="${esc(D.amount)}"/>`;
   if(c&&c.type==="virement") html+=`<div class="empty" style="margin-top:10px;padding:11px;">Virement de <b>${D.account==="perso"?"ton compte":ACC[D.account].toLowerCase()}</b> vers <b>${c.to==="perso"?"ton compte":ACC[c.to].toLowerCase()}</b></div>`;
   else html+=`<div class="seg" style="margin:10px 0 0;">${["depense","revenu"].map(t=>`<button type="button" class="${D.type===t?"on":""}" onclick="txSet('type','${t}')">${t==="depense"?"− Dépense":"+ Revenu / remboursement"}</button>`).join("")}</div>`;
+  if(D.type==="depense") html+=`<div class="seg" style="margin:8px 0 0;">${[["fixe","Fixe"],["variable","Variable"]].map(([k,l])=>`<button type="button" class="${D.nature===k?"on":""}" onclick="txSet('nature','${k}')">${l}</button>`).join("")}</div>`;
   html+=`<label class="lbl">Compte</label><div class="chips">${["perso","commun","epargne"].map(a=>`<button type="button" class="chip${a===D.account?" on":""}" onclick="txAcc('${a}')">${ACC_S[a]}</button>`).join("")}</div>`;
   html+=`<label class="lbl">Catégorie</label>`;
   html+=secs.map(s=>`<div class="chip-sec">${esc(s)}</div><div class="chips">${cats.filter(x=>x.section===s).map(x=>`<button type="button" class="chip${x.id===D.cat?" on":""}" onclick="txCat('${x.id}')">${esc(x.name)}</button>`).join("")}</div>`).join("");
@@ -743,7 +752,7 @@ function renderTxForm(){
 function txSync(){D.amount=$("#f-amt").value;D.date=$("#f-date").value;D.comment=$("#f-com").value;}
 function txSet(k,v){txSync();D[k]=v;renderTxForm();}
 function txAcc(a){txSync();if(D.account!==a){D.account=a;D.cat=null;D.to=null;if(D.type==="virement")D.type="depense";}renderTxForm();}
-function txCat(id){txSync();const c=myCat(id);if(!c)return;D.cat=id;if(c.type==="virement"){D.type="virement";D.to=c.to;}else{D.type=c.type;D.to=null;}renderTxForm();}
+function txCat(id){txSync();const c=myCat(id);if(!c)return;D.cat=id;if(c.type==="virement"){D.type="virement";D.to=c.to;}else{D.type=c.type;D.to=null;}D.nature=c.nature||"variable";renderTxForm();}
 function txNewCat(){txSync();const draft={...D},r=TXRET;openCatForm({account:D.account});RET=null;
   const orig=saveCatForm;window.saveCatForm=function(){const before=S.categories.length;orig();window.saveCatForm=orig;if(S.categories.length>before){const nc=S.categories[S.categories.length-1];D={...draft,cat:nc.id,type:nc.type==="virement"?"virement":nc.type,to:nc.type==="virement"?nc.to:null};TXRET=r;renderTxForm();}};}
 function saveTx(){
@@ -756,6 +765,7 @@ function saveTx(){
   const c=myCat(D.cat);
   const t={id:D.id||uid(),created:D.created||Date.now(),date:D.date,account:D.account,cat:D.cat,type:D.type,amount:Math.round(a*100)/100,comment:(D.comment||"").trim()};
   if(t.type==="virement") t.to=D.to||(c&&c.to)||"commun";
+  if(t.type==="depense") t.nature=D.nature||"variable";
   if(D.id){const i=S.tx.findIndex(x=>x.id===D.id);if(i>-1)S.tx[i]=t;}else S.tx.push(t);
   save();
   PSC={};
@@ -776,13 +786,13 @@ function sharedCats(){const l=S.categories.filter(c=>c.account!=="perso"&&!c.arc
 function planTotals(month){
   const p={};
   persons().forEach(x=>{
-    const r={inc:0,dep:0,vir:0,virCom:0,virEp:0};
-    x.cats.filter(c=>c.account==="perso"&&!c.archived).forEach(c=>{const b=budgetOf(c,month,x.who);if(c.type==="revenu")r.inc+=b;else if(c.type==="depense")r.dep+=b;else{r.vir+=b;if(c.to==="commun")r.virCom+=b;if(c.to==="epargne")r.virEp+=b;}});
+    const r={inc:0,dep:0,depF:0,vir:0,virCom:0,virEp:0};
+    x.cats.filter(c=>c.account==="perso"&&!c.archived).forEach(c=>{const b=budgetOf(c,month,x.who);if(c.type==="revenu")r.inc+=b;else if(c.type==="depense"){r.dep+=b;if(c.nature==="fixe")r.depF+=b;}else{r.vir+=b;if(c.to==="commun")r.virCom+=b;if(c.to==="epargne")r.virEp+=b;}});
     p[x.who]=r;
   });
-  const s={comDep:0,comInc:0,comToEp:0,epToCom:0,epDep:0,epInc:0};
+  const s={comDep:0,comDepF:0,comInc:0,comToEp:0,epToCom:0,epDep:0,epInc:0};
   sharedCats().forEach(c=>{const b=budgetOf(c,month);
-    if(c.account==="commun"){if(c.type==="depense")s.comDep+=b;else if(c.type==="revenu")s.comInc+=b;else if(c.to==="epargne")s.comToEp+=b;}
+    if(c.account==="commun"){if(c.type==="depense"){s.comDep+=b;if(c.nature==="fixe")s.comDepF+=b;}else if(c.type==="revenu")s.comInc+=b;else if(c.to==="epargne")s.comToEp+=b;}
     else{if(c.type==="depense")s.epDep+=b;else if(c.type==="revenu")s.epInc+=b;else if(c.to==="commun")s.epToCom+=b;}});
   return {p,s};
 }
@@ -815,6 +825,7 @@ function renderBudget(){
   html+=`<div class="hero"><div class="k">Mon plan pour ${mLabel(curMonth).split(" ")[0]}</div>
     <div class="big ${reste<0?"neg":""}">${fmt(reste)}</div>
     <div class="s">${me.inc<=0?"Commence par ton salaire prévu, dans Revenus juste en dessous.":reste>0.5?"encore sans destination : mets-le en épargne, en imprévus, où tu veux":reste<-0.5?"tu as prévu plus que ce qui rentre, il faut raboter quelque part":"Chaque euro a sa place 👌"}</div>
+    ${me.dep>0?`<div class="s" style="margin-top:8px;">Dépenses perso : ${fmt0(me.depF)} fixes, ${fmt0(me.dep-me.depF)} variables</div>`:""}
     <div class="row"><div class="pill2"><div class="l">Revenus prévus</div><div class="v">${fmt0(me.inc)}</div></div><div class="pill2"><div class="l">Dépenses perso</div><div class="v">${fmt0(me.dep)}</div></div><div class="pill2"><div class="l">Virements</div><div class="v">${fmt0(me.vir)}</div></div></div></div>`;
   const comNeed=s.comDep+s.comToEp-s.comInc-s.epToCom;
   const epGoal=goalM(curMonth);
@@ -822,8 +833,8 @@ function renderBudget(){
   const pl=(key,need)=>{const l=[{name:myName(),v:me[key],sug:S.partner?need*sp.r:null}];if(S.partner)l.push({name:pName(),v:pa[key],sug:need*(1-sp.r)});return l;};
   html+=`<div class="card"><h3>Quoi mettre où</h3><div class="muted">D'après les budgets du commun et votre objectif d'épargne. Répartition ${sp.why}.</div>`;
   if(S.partner) html+=`<div class="chips" style="margin-top:8px;">${[["prorata","Au prorata des revenus"],["moitie","50/50"]].map(([k,l])=>`<button class="chip${(S.splitMode||"prorata")===k?" on":""}" onclick="setSplit('${k}')">${l}</button>`).join("")}</div>`;
-  html+=needBlock("Sur le compte commun",comNeed,`${fmt0(s.comDep)} de dépenses prévues${s.comToEp?` + ${fmt0(s.comToEp)} vers l'épargne`:""}${s.comInc?` − ${fmt0(s.comInc)} d'autres entrées`:""}`,pl("virCom",comNeed),comNeed*sp.r,"commun");
-  html+=needBlock("Sur l'épargne commune",epNeed,`objectif du mois : ${fmt0(epGoal)}${s.comToEp?` (dont ${fmt0(s.comToEp)} viennent du commun)`:""}`,pl("virEp",epNeed),epNeed*sp.r,"epargne");
+  html+=needBlock("Sur le compte commun",comNeed,`${fmt0(s.comDep)} de dépenses prévues (${fmt0(s.comDepF)} fixes, ${fmt0(s.comDep-s.comDepF)} variables)${s.comToEp?` + ${fmt0(s.comToEp)} vers l'épargne`:""}${s.comInc?` − ${fmt0(s.comInc)} d'autres entrées`:""}`,pl("virCom",comNeed),comNeed*sp.r,"commun");
+  html+=needBlock("Sur l'épargne long terme",epNeed,`objectif du mois : ${fmt0(epGoal)}${s.comToEp?` (dont ${fmt0(s.comToEp)} viennent du commun)`:""}`,pl("virEp",epNeed),epNeed*sp.r,"epargne");
   html+=`</div>`;
   html+=`<div class="seg">${["perso","commun","epargne"].map(a=>`<button class="${a===BACC?"on":""}" onclick="BACC='${a}';renderBudget()">${ACC_S[a]}</button>`).join("")}</div>`;
   html+=`<div class="chips" style="margin-bottom:4px;"><button class="chip${!BUD_ONLY?" on":""}" onclick="BUD_ONLY=false;renderBudget()">Ce mois et les suivants</button><button class="chip${BUD_ONLY?" on":""}" onclick="BUD_ONLY=true;renderBudget()">Seulement ce mois</button></div>
@@ -958,7 +969,7 @@ function periodMonths(){
 function whoOk(t){return SYN.who==="all"||!S.partner?(S.partner?true:t.who==="me"):t.who===SYN.who;}
 function aggregate(months){
   const set=new Set(months);
-  const r={dep:0,inc:0,saved:0,cats:{},secs:{},incCats:{}};
+  const r={dep:0,inc:0,saved:0,fixe:0,cats:{},secs:{},incCats:{}};
   allTx().forEach(t=>{
     if(!set.has(txPer(t))||!whoOk(t)) return;
     const a=Number(t.amount)||0,c=catOf(t.cat,t.who),ct=c?c.type:t.type;
@@ -971,6 +982,7 @@ function aggregate(months){
     if(ct==="revenu"){const v=t.type==="revenu"?a:-a;r.inc+=v;r.incCats[t.cat]=(r.incCats[t.cat]||0)+v;return;}
     const v=t.type==="revenu"?-a:a;
     r.dep+=v;
+    if(natureOf(t)==="fixe") r.fixe+=v;
     r.cats[t.cat]=(r.cats[t.cat]||0)+v;
     const sec=(c?c.section:"Autres")+"|"+(c?c.account:t.account);
     r.secs[sec]=(r.secs[sec]||0)+v;
@@ -1008,6 +1020,9 @@ function renderSynth(){
     <div class="kpi"><div class="l">Mis à l'épargne</div><div class="v">${fmt(r.saved)}</div></div>
     <div class="kpi"><div class="l">Revenus − dépenses</div><div class="v" style="color:${solde>=0?"var(--in)":"var(--out)"};">${sgn(solde)}</div></div>
   </div>`;
+  if(r.dep>0){const pf=Math.max(0,Math.min(100,r.fixe/r.dep*100));html+=`<div class="card"><h3>Fixes et variables</h3><div class="split" style="height:14px;"><i style="width:${pf}%;background:var(--acc-dark);"></i><i style="width:${100-pf}%;background:#d9a860;"></i></div>
+    <div class="acc-row"><span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:var(--acc-dark);margin-right:6px;"></i>Dépenses fixes</span><b>${fmt(r.fixe)} · ${Math.round(pf)} %</b></div>
+    <div class="acc-row"><span><i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:#d9a860;margin-right:6px;"></i>Dépenses variables</span><b>${fmt(r.dep-r.fixe)} · ${Math.round(100-pf)} %</b></div></div>`;}
   if(r.inc>0) html+=`<div class="muted" style="margin:-4px 4px 12px;">Taux d'épargne : <b>${Math.round(r.saved/r.inc*100)} %</b> des revenus mis de côté.</div>`;
   if(cats.length){
     const max=cats[0][1];
@@ -1161,7 +1176,12 @@ function openSettings(focus){
   RET=null;
   const st=S.start||{};
   let html=head("Réglages","");
-  html+=`<div class="card" id="set-duo" style="box-shadow:none;margin-top:8px;"><h3>🔒 Connexion à deux</h3>`;
+  html+=`<div class="card" style="box-shadow:none;margin-top:8px;"><h3>Mon profil</h3>
+    <label class="lbl" style="margin-top:0;">Ton prénom ou pseudo</label><input type="text" value="${esc(S.me.name)}" onchange="S.me.name=this.value.trim()||S.me.name;save();render();"/>
+    <label class="lbl">Prénom de ton/ta partenaire</label><input type="text" placeholder="ex : Bilal" value="${esc(S.partnerName)}" onchange="S.partnerName=this.value.trim();save();render();"/>
+    <div class="muted" style="margin-top:6px;">Ça change juste comment il ou elle s'affiche chez toi.</div>
+    <label class="lbl">Couleur de l'appli</label><div class="theme-dots">${Object.entries(THEMES).map(([k,c])=>`<button style="background:${c};" class="${S.theme===k?"on":""}" onclick="S.theme='${k}';save();render();openSettings()" aria-label="${k}"></button>`).join("")}</div></div>`;
+  html+=`<div class="card" id="set-duo" style="box-shadow:none;"><h3>🔒 Connexion à deux</h3>`;
   if(syncOn()){
     html+=`<div class="muted">Vos applis se synchronisent toutes seules. Tout est chiffré avec votre clé secrète avant de partir : le serveur ne voit que du charabia.</div>
       <div class="acc-row" style="margin-top:8px;"><span>Dernier envoi</span><b>${S.sync.lastPush?new Date(S.sync.lastPush).toLocaleString("fr-BE",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):"—"}</b></div>
@@ -1181,17 +1201,13 @@ function openSettings(focus){
     ${S.partner?`<div class="muted" style="margin-top:10px;">Dernier import : <b>${new Date(S.partner.importedAt||S.partner.exportedAt).toLocaleDateString("fr-BE",{day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"})}</b> · ${(S.partner.tx||[]).length} lignes · fichier exporté le ${new Date(S.partner.exportedAt).toLocaleDateString("fr-BE")}</div>
     <button class="btn danger sm" style="margin-top:8px;" onclick="removePartner()">Retirer les données de ${esc(pName())}</button>`:""}
   </div>`;
-  html+=`<div class="card" style="box-shadow:none;"><h3>Vous deux</h3>
-    <label class="lbl" style="margin-top:0;">Ton prénom</label><input type="text" value="${esc(S.me.name)}" onchange="S.me.name=this.value.trim()||S.me.name;save();render();"/>
-    <label class="lbl">Prénom de ton/ta partenaire</label><input type="text" placeholder="ex : Bilal" value="${esc(S.partnerName)}" onchange="S.partnerName=this.value.trim();save();render();"/>
-    <label class="lbl">Couleur de l'appli</label><div class="theme-dots">${Object.entries(THEMES).map(([k,c])=>`<button style="background:${c};" class="${S.theme===k?"on":""}" onclick="S.theme='${k}';save();render();openSettings()" aria-label="${k}"></button>`).join("")}</div></div>`;
   const cut=cutOf(st);
   html+=`<div class="card" style="box-shadow:none;"><h3>Point de départ</h3>
     <div class="muted">Ce qu'il y avait sur les comptes le jour où tu as commencé. Tout le reste se calcule à partir de là. Les lignes datées d'avant ce jour ne changent plus les soldes (elles y sont déjà). Pour le commun et l'épargne, un seul de vous deux suffit.</div>
     <label class="lbl">Date de départ</label><input type="date" value="${st.date||dAdd(cut.date,1)}" onchange="setStart('date',this.value)"/>
     <label class="lbl">Mon compte à vue</label><input type="text" inputmode="decimal" value="${filled(st.perso)?st.perso:""}" placeholder="0 €" onchange="setStart('perso',this.value)"/>
     <label class="lbl">Compte commun</label><input type="text" inputmode="decimal" value="${filled(st.commun)?st.commun:""}" placeholder="${S.partner&&filled((S.partner.start||{}).commun)?`${S.partner.start.commun} (encodé par ${esc(pName())})`:"0 €"}" onchange="setStart('commun',this.value)"/>
-    <label class="lbl">Épargne commune</label><input type="text" inputmode="decimal" value="${filled(st.epargne)?st.epargne:""}" placeholder="${S.partner&&filled((S.partner.start||{}).epargne)?`${S.partner.start.epargne} (encodé par ${esc(pName())})`:"0 €"}" onchange="setStart('epargne',this.value)"/></div>`;
+    <label class="lbl">Épargne long terme</label><input type="text" inputmode="decimal" value="${filled(st.epargne)?st.epargne:""}" placeholder="${S.partner&&filled((S.partner.start||{}).epargne)?`${S.partner.start.epargne} (encodé par ${esc(pName())})`:"0 €"}" onchange="setStart('epargne',this.value)"/></div>`;
   html+=`<div class="card" style="box-shadow:none;"><h3>Sauvegarde</h3>
     <div class="muted">Le même fichier sert de sauvegarde : si tu le réimportes toi-même, l'appli te propose de restaurer tes données.</div>
     <button class="btn ghost" style="margin-top:10px;" onclick="exportData(false)">⬇ Télécharger ma sauvegarde</button>
@@ -1473,14 +1489,19 @@ function onboarding(){
     <div class="goal-grid">
       <div class="gfield full"><label>Mon compte à vue</label><input id="ob-p" type="text" inputmode="decimal" placeholder="0 €"/></div>
       <div class="gfield"><label>Compte commun</label><input id="ob-c" type="text" inputmode="decimal" placeholder="0 €"/></div>
-      <div class="gfield"><label>Épargne commune</label><input id="ob-e" type="text" inputmode="decimal" placeholder="0 €"/></div>
+      <div class="gfield"><label>Épargne long terme</label><input id="ob-e" type="text" inputmode="decimal" placeholder="0 €"/></div>
     </div>
     <div class="muted" style="margin-top:6px;">Regarde ton appli bancaire et recopie les soldes. Tu ne le fais qu'une fois : ensuite, tout se calcule avec ce que vous encodez. Pour le commun et l'épargne, un seul de vous deux suffit.</div>
+    <label class="lbl">Pré-remplir les budgets avec votre tableau de novembre ?</label>
+    <div class="chips" id="ob-pre">${[["marion","Oui, je suis Marion"],["bilal","Oui, je suis Bilal"],["","Non, je pars de zéro"]].map(([k,l])=>`<button type="button" class="chip${OB_PRE===k?" on":""}" onclick="obPre('${k}',this)">${l}</button>`).join("")}</div>
+    <div class="muted" style="margin-top:6px;">Ça remplit le loyer, les charges, la voiture, etc. Tout reste modifiable dans l'onglet Budget.</div>
     <label class="lbl">Couleur</label><div class="theme-dots">${Object.entries(THEMES).map(([k,c])=>`<button style="background:${c};" class="${S.theme===k?"on":""}" onclick="obTheme('${k}',this)" aria-label="${k}"></button>`).join("")}</div>
     <div class="err" id="ob-err"></div>
     <button class="btn" style="margin-top:18px;" onclick="obSave()">C'est parti</button>
     <button class="btn ghost" onclick="$('#imp-file').click()">J'ai déjà une sauvegarde</button>`);
 }
+let OB_PRE="";
+function obPre(k,el){OB_PRE=k;document.querySelectorAll("#ob-pre .chip").forEach(b=>b.classList.toggle("on",b===el));}
 function obTheme(k,el){S.theme=k;document.body.dataset.theme=k;document.querySelectorAll(".theme-dots button").forEach(b=>b.classList.toggle("on",b===el));}
 function obSave(){
   const me=$("#ob-me").value.trim();
@@ -1489,6 +1510,10 @@ function obSave(){
   const v=id=>{const x=$(id).value.trim();return x===""?"":num(x);};
   S.start={date:today(),ts:Date.now(),perso:v("#ob-p"),commun:v("#ob-c"),epargne:v("#ob-e")};
   PSC={};curMonth=curPer();S.goal.startMonth=curMonth;
+  if(OB_PRE&&PRESETS[OB_PRE]){
+    const m=curMonth,put=o=>Object.entries(o).forEach(([id,v])=>{if(myCat(id))S.budgets[id]=[{from:m,amount:v,at:Date.now()}];});
+    put(PRESETS.commun);put(PRESETS[OB_PRE]);
+  }
   save();LOCK=false;closeSheet();render();toast(`Bienvenue ${me} 💜 Ton mois démarre dès que tu encodes ton salaire`);
 }
 
