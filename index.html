@@ -317,20 +317,53 @@ let TXC=null;
 function saveRaw(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast("Impossible d'enregistrer, le stockage est plein ou bloqué");}}
 function save(){TXC=null;PSC={};saveRaw();schedulePush();}
 let PSC={};
-const payday=()=>Math.min(31,Math.max(1,Math.round(Number(S.payday)||1)));
 const clampDay=(m,d)=>`${m}-${pad(Math.min(d,Number(lastDay(m).slice(8))))}`;
-function theoStart(m){const pd=payday();if(pd===1)return m+"-01";return pd>=16?clampDay(addM(m,-1),pd):clampDay(m,pd);}
-function perStart(m){
-  if(PSC[m]) return PSC[m];
-  const th=theoStart(m),lo=dAdd(th,-10),hi=dAdd(th,10);
-  const sal=S.tx.filter(t=>t.cat==="sal"&&t.type==="revenu"&&t.account==="perso"&&t.date>=lo&&t.date<=hi).map(t=>t.date).sort()[0];
-  return PSC[m]=sal||th;
+const dayN=iso=>Number(iso.slice(8,10));
+const mdiff=(a,b)=>{const[y1,m1]=a.split("-").map(Number),[y2,m2]=b.split("-").map(Number);return (y1-y2)*12+(m1-m2);};
+const dDiff=(a,b)=>Math.round((new Date(a+"T12:00:00")-new Date(b+"T12:00:00"))/86400000);
+function perInfo(who){
+  const ck="L:"+who;
+  if(PSC[ck]) return PSC[ck];
+  const p=persons().find(x=>x.who===who);
+  const all=p?[...new Set(p.tx.filter(t=>t.cat==="sal"&&t.type==="revenu"&&t.account==="perso").map(t=>t.date))].sort():[];
+  const ds=[];all.forEach(d=>{if(!ds.length||dDiff(d,ds[ds.length-1])>15)ds.push(d);});
+  const L=[];
+  ds.forEach((d,i)=>{
+    const len=i<ds.length-1?dDiff(ds[i+1],d):30;
+    const named=monthOf(dAdd(d,Math.floor(len/2)));
+    const key=L.length&&named<=L[L.length-1].key?addM(L[L.length-1].key,1):named;
+    L.push({key,start:d});
+  });
+  return PSC[ck]=L;
 }
-const perEnd=m=>dAdd(perStart(addM(m,1)),-1);
-function perOf(iso){const m=monthOf(iso);if(iso<perStart(m))return addM(m,-1);if(iso>=perStart(addM(m,1)))return addM(m,1);return m;}
+function perStart(m,who){
+  who=who||"me";
+  const ck="S:"+who+":"+m;
+  if(PSC[ck]) return PSC[ck];
+  const L=perInfo(who);let r;
+  if(!L.length) r=m+"-01";
+  else{
+    const f=L[0],l=L[L.length-1];
+    if(m<f.key) r=clampDay(addM(monthOf(f.start),-mdiff(f.key,m)),dayN(f.start));
+    else if(m>l.key) r=clampDay(addM(monthOf(l.start),mdiff(m,l.key)),dayN(l.start));
+    else{const x=L.find(p=>p.key===m)||L.find(p=>p.key>m);r=x.start;}
+  }
+  return PSC[ck]=r;
+}
+const perEnd=(m,who)=>dAdd(perStart(addM(m,1),who),-1);
+function perOf(iso,who){
+  who=who||"me";
+  const ck="O:"+who+":"+iso;
+  if(PSC[ck]) return PSC[ck];
+  const m=monthOf(iso);let r=m;
+  for(let j=3;j>=-3;j--){const k=addM(m,j);if(perStart(k,who)<=iso&&perEnd(k,who)>=iso){r=k;break;}}
+  return PSC[ck]=r;
+}
+const txPer=t=>perOf(t.date,t.account==="perso"?t.who:"me");
 const curPer=()=>perOf(today());
+const hasSalary=who=>perInfo(who||"me").length>0;
 const dShort=iso=>new Date(iso+"T12:00:00").toLocaleDateString("fr-BE",{day:"numeric",month:"short"}).replace(".","");
-const perRange=m=>`${dShort(perStart(m))} → ${dShort(perEnd(m))}`;
+const perRange=(m,who)=>`${dShort(perStart(m,who))} → ${dShort(perEnd(m,who))}`;
 
 const myName=()=>S.me.name||"Moi";
 const pName=()=>S.partnerName||(S.partner&&S.partner.name)||"Partenaire";
@@ -377,8 +410,9 @@ function balanceAt(key,iso){
 }
 function flows(key,month){
   const st=startOf(key);let i=0,o=0;
-  if(perEnd(month)<st.cut.date) return {i,o};
-  for(const t of allTx()){if(perOf(t.date)!==month||!counts(t,st.cut))continue;for(const[k,d] of effects(t)) if(k===key){if(d>0)i+=d;else o-=d;}}
+  const w=key==="perso:partner"?"partner":"me";
+  if(perEnd(month,w)<st.cut.date) return {i,o};
+  for(const t of allTx()){if(perOf(t.date,w)!==month||!counts(t,st.cut))continue;for(const[k,d] of effects(t)) if(k===key){if(d>0)i+=d;else o-=d;}}
   return {i,o};
 }
 function budgetFor(id,month,budgets){
@@ -406,7 +440,7 @@ function setBudget(id,month,amount,onlyThis){
 function catTotal(c,month,whoL){
   let v=0;
   for(const t of allTx()){
-    if(t.cat!==c.id||t.account!==c.account||perOf(t.date)!==month||!whoL.includes(t.who)) continue;
+    if(t.cat!==c.id||t.account!==c.account||txPer(t)!==month||!whoL.includes(t.who)) continue;
     const a=Number(t.amount)||0;
     if(c.type==="revenu") v+=t.type==="revenu"?a:-a;
     else if(c.type==="virement") v+=a;
@@ -462,8 +496,8 @@ function render(){
 }
 function monthSwitch(){
   const cur=curPer();
-  const custom=perStart(curMonth)!==curMonth+"-01"||perEnd(curMonth)!==lastDay(curMonth);
-  return `<div class="mswitch"><button onclick="shiftMonth(-1)" aria-label="Mois précédent">‹</button><div class="ml">${mLabel(curMonth)}${custom?`<small style="color:var(--muted);cursor:default;">${perRange(curMonth)}</small>`:""}${curMonth!==cur?`<small onclick="shiftMonth(0)">revenir à ce mois-ci</small>`:""}</div><button onclick="shiftMonth(1)" aria-label="Mois suivant">›</button></div>`;
+  const custom=hasSalary();
+  return `<div class="mswitch"><button onclick="shiftMonth(-1)" aria-label="Mois précédent">‹</button><div class="ml">${mLabel(curMonth)}${custom?`<small style="color:var(--muted);cursor:default;">${perRange(curMonth)}${curMonth>perInfo("me")[perInfo("me").length-1].key?" · en attente du salaire":""}</small>`:`<small style="color:var(--muted);cursor:default;">ton mois démarrera quand tu encodes ton salaire</small>`}${curMonth!==cur?`<small onclick="shiftMonth(0)">revenir à ce mois-ci</small>`:""}</div><button onclick="shiftMonth(1)" aria-label="Mois suivant">›</button></div>`;
 }
 function shiftMonth(n){curMonth=n===0?curPer():addM(curMonth,n);render();}
 
@@ -515,7 +549,7 @@ function renderSaisie(){
   INC=[];
   if(curAcc!=="perso"){
     const groups={};
-    allTx().filter(t=>t.type==="virement"&&keyOf(t.to,t.who)===curAcc&&perOf(t.date)===curMonth).forEach(t=>{
+    allTx().filter(t=>t.type==="virement"&&keyOf(t.to,t.who)===curAcc&&perOf(t.date,"me")===curMonth).forEach(t=>{
       const lab=t.account==="perso"?"De "+whoName(t.who):"Du "+ACC[t.account].toLowerCase();
       (groups[lab]=groups[lab]||[]).push(t);
     });
@@ -588,7 +622,7 @@ function openCat(id,owner){
   const whoL=whoListFor(c,owner);
   const tot=catTotal(c,curMonth,whoL);
   const b=budgetOf(c,curMonth,owner);
-  const lines=allTx().filter(t=>t.cat===c.id&&t.account===c.account&&perOf(t.date)===curMonth&&whoL.includes(t.who)).sort((a,b)=>a.date<b.date?1:-1);
+  const lines=allTx().filter(t=>t.cat===c.id&&t.account===c.account&&txPer(t)===curMonth&&whoL.includes(t.who)).sort((a,b)=>a.date<b.date?1:-1);
   const word=c.type==="revenu"?"Reçu":c.type==="virement"?"Viré":"Dépensé";
   const editable=owner==="me";
   const hist=[];for(let i=5;i>=0;i--){const m=addM(curMonth,-i);hist.push({m,v:catTotal(c,m,whoL)});}
@@ -724,9 +758,11 @@ function saveTx(){
   if(t.type==="virement") t.to=D.to||(c&&c.to)||"commun";
   if(D.id){const i=S.tx.findIndex(x=>x.id===D.id);if(i>-1)S.tx[i]=t;}else S.tx.push(t);
   save();
-  PSC={};if(perOf(t.date)!==curMonth&&!D.id) curMonth=perOf(t.date);
+  PSC={};
+  const newMonth=t.cat==="sal"&&t.type==="revenu"&&perStart(perOf(t.date))===t.date;
+  if(perOf(t.date)!==curMonth&&(!D.id||newMonth)) curMonth=perOf(t.date);
   render();
-  toast(`${D.id?"Ligne modifiée":"Ajouté"} · ${t.type==="revenu"?"+":t.type==="virement"?"→ ":"−"}${fmt(t.amount)} en ${c?c.name:""}`);
+  toast(newMonth&&!D.id?`Salaire encodé 💰 Ton mois de ${mLabel(curMonth).split(" ")[0]} commence le ${dShort(t.date)}`:`${D.id?"Ligne modifiée":"Ajouté"} · ${t.type==="revenu"?"+":t.type==="virement"?"→ ":"−"}${fmt(t.amount)} en ${c?c.name:""}`);
   if(TXRET){const r=TXRET;TXRET=null;r();}else closeSheet();
 }
 function delTx(id){
@@ -815,8 +851,9 @@ function renderBilan(){
   const showProj=curMonth>=cur;
   const plan=planRemaining(curMonth);
   const keys=accKeys();
-  const ps=perStart(curMonth),pe=perEnd(curMonth);
   const data=keys.map(k=>{
+    const w=k==="perso:partner"?"partner":"me";
+    const ps=perStart(curMonth,w),pe=perEnd(curMonth,w);
     const st=startOf(k);
     const before=pe<st.cut.date;
     const startIn=!before&&st.cut.date>=dAdd(ps,-1);
@@ -824,7 +861,7 @@ function renderBilan(){
     const fl=flows(k,curMonth);
     const end=balanceAt(k,pe);
     const proj=end+(plan.inc[k]||0)-(plan.out[k]||0);
-    return {k,start,fl,end,proj,before,startIn,cut:st.cut,src:st.src};
+    return {k,start,fl,end,proj,before,startIn,cut:st.cut,src:st.src,w};
   });
   const totEnd=data.reduce((s,d)=>s+(d.before?0:d.end),0);
   const totProj=data.reduce((s,d)=>s+(d.before?0:d.proj),0);
@@ -839,7 +876,7 @@ function renderBilan(){
   data.forEach(d=>{
     const bk=(S.bank[curMonth]||{})[d.k];
     const canBank=d.k!=="perso:partner";
-    html+=`<div class="card"><h3>${esc(accTitle(d.k))}</h3>`;
+    html+=`<div class="card"><h3>${esc(accTitle(d.k))}${hasSalary(d.w)?` <small>${perRange(curMonth,d.w)}</small>`:""}</h3>`;
     if(d.before){html+=`<div class="muted">Le suivi de ce compte commence le ${dShort(dAdd(d.cut.date,isFinite(d.cut.ts)?0:1))}.</div></div>`;return;}
     html+=`<div class="acc-row"><span>${d.startIn?`Au départ (${dShort(dAdd(d.cut.date,isFinite(d.cut.ts)?0:1))})`:"Début du mois"}</span><b>${fmt(d.start)}</b></div>
       <div class="acc-row"><span>Entrées</span><b style="color:var(--in);">+${fmt(d.fl.i)}</b></div>
@@ -878,7 +915,7 @@ function renderBilan(){
   }
   if(S.partner){
     const put={me:0,partner:0},paid={me:0,partner:0};
-    allTx().filter(t=>perOf(t.date)===curMonth).forEach(t=>{
+    allTx().filter(t=>perOf(t.date,"me")===curMonth).forEach(t=>{
       if(t.type==="virement"&&t.to==="commun"&&t.account==="perso") put[t.who]+=Number(t.amount);
       if(t.account==="commun"&&t.type==="depense") paid[t.who]+=Number(t.amount);
     });
@@ -916,14 +953,14 @@ function periodMonths(){
   if(SYN.period==="mois") return [curMonth];
   if(SYN.period==="3m") return [addM(curMonth,-2),addM(curMonth,-1),curMonth];
   if(SYN.period==="annee"){const y=curMonth.slice(0,4);return Array.from({length:12},(_,i)=>`${y}-${pad(i+1)}`);}
-  return [...new Set(allTx().map(t=>perOf(t.date)))].sort();
+  return [...new Set(allTx().map(txPer))].sort();
 }
 function whoOk(t){return SYN.who==="all"||!S.partner?(S.partner?true:t.who==="me"):t.who===SYN.who;}
 function aggregate(months){
   const set=new Set(months);
   const r={dep:0,inc:0,saved:0,cats:{},secs:{},incCats:{}};
   allTx().forEach(t=>{
-    if(!set.has(perOf(t.date))||!whoOk(t)) return;
+    if(!set.has(txPer(t))||!whoOk(t)) return;
     const a=Number(t.amount)||0,c=catOf(t.cat,t.who),ct=c?c.type:t.type;
     if(t.type==="virement"){
       if(keyOf(t.to,t.who)==="epargne") r.saved+=a;
@@ -1000,7 +1037,7 @@ function renderSynth(){
 function synthCat(id){
   const c=catOf(id,"me");if(!c)return;
   const set=new Set(periodMonths());
-  const lines=allTx().filter(t=>t.cat===id&&set.has(perOf(t.date))&&whoOk(t)).sort((a,b)=>a.date<b.date?1:-1);
+  const lines=allTx().filter(t=>t.cat===id&&set.has(txPer(t))&&whoOk(t)).sort((a,b)=>a.date<b.date?1:-1);
   RET=()=>synthCat(id);
   openSheet(head(esc(c.name),`${esc(c.section)} · ${ACC[c.account]} · ${lines.length} ligne${lines.length>1?"s":""}`)+(lines.length?lines.map(t=>lineHTML(t,{showAcc:true})).join(""):`<div class="empty">Rien sur cette période.</div>`));
 }
@@ -1095,19 +1132,19 @@ function renderHist(){
     if(q){const c=catOf(t.cat,t.who);const hay=[(c&&c.name)||"",(c&&c.section)||"",t.comment||"",String(t.amount)].join(" ").toLowerCase();if(!hay.includes(q))return false;}
     return true;
   });
-  const months=[...new Set([...tx.map(t=>perOf(t.date)),...(q?[]:Object.keys(S.notes))])].sort().reverse();
+  const months=[...new Set([...tx.map(txPer),...(q?[]:Object.keys(S.notes))])].sort().reverse();
   let html=`<div class="ptitle">Historique</div>`;
   html+=`<div class="search"><input type="search" id="h-q" placeholder="Chercher : courses, resto, Zalando..." value="${esc(HIST.q)}" oninput="HIST.q=this.value;histDeb()"/></div>`;
   html+=`<div class="chips" style="margin-bottom:8px;">${[["all","Tous les comptes"],["perso","Compte à vue"],["commun","Commun"],["epargne","Épargne"]].map(([k,l])=>`<button class="chip${HIST.acc===k?" on":""}" onclick="HIST.acc='${k}';renderHist()">${l}</button>`).join("")}</div>`;
   if(S.partner) html+=`<div class="chips" style="margin-bottom:12px;">${[["all","Nous deux"],["me",myName()],["partner",pName()]].map(([k,l])=>`<button class="chip${HIST.who===k?" on":""}" onclick="HIST.who='${k}';renderHist()">${esc(l)}</button>`).join("")}</div>`;
   if(!months.length) html+=`<div class="empty">${q?"Rien trouvé pour cette recherche.":"Rien d'encodé pour l'instant. Tout ce que vous ajoutez dans la saisie arrivera ici, mois par mois."}</div>`;
   months.forEach((m,idx)=>{
-    const lines=tx.filter(t=>perOf(t.date)===m).sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
+    const lines=tx.filter(t=>txPer(t)===m).sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
     let dep=0,inc=0;lines.forEach(t=>{const a=Number(t.amount);if(t.type==="depense")dep+=a;else if(t.type==="revenu")inc+=a;});
     const open=HIST.open[m]!==undefined?HIST.open[m]:(q?true:idx===0);
     const pn=S.partner&&S.partner.notes&&S.partner.notes[m];
     html+=`<div class="month-card${open?" open":""}"><div class="month-head" onclick="HIST.open['${m}']=${!open};renderHist()">
-      <div><div class="mn">${mLabel(m)}</div><div class="ms">${perStart(m)!==m+"-01"?perRange(m)+" · ":""}${lines.length} ligne${lines.length>1?"s":""} · <span style="color:var(--out);">−${fmt0(dep)}</span> · <span style="color:var(--in);">+${fmt0(inc)}</span>${S.notes[m]||pn?" · 📝":""}</div></div><div class="chev">›</div></div>
+      <div><div class="mn">${mLabel(m)}</div><div class="ms">${hasSalary()?perRange(m)+" · ":""}${lines.length} ligne${lines.length>1?"s":""} · <span style="color:var(--out);">−${fmt0(dep)}</span> · <span style="color:var(--in);">+${fmt0(inc)}</span>${S.notes[m]||pn?" · 📝":""}</div></div><div class="chev">›</div></div>
       <div class="month-body">
         ${S.notes[m]?`<div class="note-box"><b>${esc(myName())} :</b> ${esc(S.notes[m])}</div>`:""}
         ${pn?`<div class="note-box"><b>${esc(pName())} :</b> ${esc(pn)}</div>`:""}
@@ -1149,9 +1186,6 @@ function openSettings(focus){
     <label class="lbl">Prénom de ton/ta partenaire</label><input type="text" placeholder="ex : Bilal" value="${esc(S.partnerName)}" onchange="S.partnerName=this.value.trim();save();render();"/>
     <label class="lbl">Couleur de l'appli</label><div class="theme-dots">${Object.entries(THEMES).map(([k,c])=>`<button style="background:${c};" class="${S.theme===k?"on":""}" onclick="S.theme='${k}';save();render();openSettings()" aria-label="${k}"></button>`).join("")}</div></div>`;
   const cut=cutOf(st);
-  html+=`<div class="card" style="box-shadow:none;"><h3>Ma paie</h3>
-    <label class="lbl" style="margin-top:0;">Jour où je touche mon salaire</label><input type="number" min="1" max="31" inputmode="numeric" value="${payday()}" onchange="setPayday(this.value)"/>
-    <div class="muted" style="margin-top:6px;">Ton mois commence ce jour-là. Et dès que tu encodes ton salaire, le mois démarre pile à la date où il est tombé (même s'il arrive un peu plus tôt ou plus tard).</div></div>`;
   html+=`<div class="card" style="box-shadow:none;"><h3>Point de départ</h3>
     <div class="muted">Ce qu'il y avait sur les comptes le jour où tu as commencé. Tout le reste se calcule à partir de là. Les lignes datées d'avant ce jour ne changent plus les soldes (elles y sont déjà). Pour le commun et l'épargne, un seul de vous deux suffit.</div>
     <label class="lbl">Date de départ</label><input type="date" value="${st.date||dAdd(cut.date,1)}" onchange="setStart('date',this.value)"/>
@@ -1172,9 +1206,9 @@ function setStart(k,v){
   else S.start[k]=String(v).trim()===""?"":num(v);
   save();render();
 }
-function setPayday(v){const n=Math.round(num(v));if(!(n>=1&&n<=31))return;S.payday=n;PSC={};curMonth=curPer();save();render();toast(`Ton mois commence le ${n}`);}
-function payload(){return {kind:"duo-budget",version:1,owner:{id:S.me.id,name:myName()},partnerName:S.partnerName,exportedAt:new Date().toISOString(),categories:S.categories,budgets:S.budgets,tx:S.tx,start:S.start,payday:S.payday,notes:S.notes,goal:S.goal,bank:S.bank,theme:S.theme,partner:S.partner};}
+function payload(){return {kind:"duo-budget",version:1,owner:{id:S.me.id,name:myName()},partnerName:S.partnerName,exportedAt:new Date().toISOString(),categories:S.categories,budgets:S.budgets,tx:S.tx,start:S.start,notes:S.notes,goal:S.goal,bank:S.bank,theme:S.theme,partner:S.partner};}
 function applyPartner(d,at){
+  PSC={};
   S.partner={id:d.owner.id,name:d.owner.name,exportedAt:d.exportedAt,importedAt:at||new Date().toISOString(),categories:d.categories||[],budgets:d.budgets||{},tx:d.tx||[],start:d.start||{},notes:d.notes||{}};
   if(!S.partnerName) S.partnerName=d.owner.name;
   TXC=null;
@@ -1410,7 +1444,7 @@ function importFile(input){
     if(!d||d.kind!=="duo-budget"||!d.owner||!d.owner.id){toast("Ce n'est pas un fichier de l'appli budget");return;}
     if(d.owner.id===S.me.id){
       if(!confirm("C'est ton propre fichier. Tu veux remplacer tes données actuelles par cette sauvegarde ?"))return;
-      Object.assign(S,{categories:d.categories||S.categories,budgets:d.budgets||{},tx:d.tx||[],start:d.start||S.start,payday:d.payday||S.payday,notes:d.notes||{},goal:d.goal||S.goal,bank:d.bank||{},theme:d.theme||S.theme,partnerName:d.partnerName||S.partnerName,partner:d.partner||S.partner});
+      Object.assign(S,{categories:d.categories||S.categories,budgets:d.budgets||{},tx:d.tx||[],start:d.start||S.start,notes:d.notes||{},goal:d.goal||S.goal,bank:d.bank||{},theme:d.theme||S.theme,partnerName:d.partnerName||S.partnerName,partner:d.partner||S.partner});
       if(!S.goal.overrides) S.goal.overrides={};
       S.me.name=d.owner.name||S.me.name;
       save();LOCK=false;closeSheet();render();toast("Sauvegarde restaurée");return;
@@ -1432,12 +1466,9 @@ function resetAll(){
 
 function onboarding(){
   LOCK=true;
-  openSheet(`<div class="sh-head"><div><h2>Bienvenue 🌱</h2><div class="sh-sub">Quatre infos, une seule fois, et c'est parti</div></div></div>
+  openSheet(`<div class="sh-head"><div><h2>Bienvenue 💜</h2><div class="sh-sub">Trois infos, une seule fois, et c'est parti</div></div></div>
     <label class="lbl">Ton prénom</label><input id="ob-me" type="text" placeholder="ex : Marion"/>
     <label class="lbl">Prénom de ton/ta partenaire</label><input id="ob-pa" type="text" placeholder="ex : Bilal"/>
-    <label class="lbl">Le jour où tu touches ton salaire</label>
-    <input id="ob-pd" type="number" min="1" max="31" inputmode="numeric" placeholder="ex : 25"/>
-    <div class="muted" style="margin-top:6px;">Ton mois commence ce jour-là, pas le 1er. Si un salaire tombe un peu plus tôt ou plus tard, l'appli suit la vraie date.</div>
     <label class="lbl">Ce qu'il y a sur tes comptes aujourd'hui</label>
     <div class="goal-grid">
       <div class="gfield full"><label>Mon compte à vue</label><input id="ob-p" type="text" inputmode="decimal" placeholder="0 €"/></div>
@@ -1457,9 +1488,8 @@ function obSave(){
   S.me.name=me;S.partnerName=$("#ob-pa").value.trim();
   const v=id=>{const x=$(id).value.trim();return x===""?"":num(x);};
   S.start={date:today(),ts:Date.now(),perso:v("#ob-p"),commun:v("#ob-c"),epargne:v("#ob-e")};
-  const pd=Math.round(num($("#ob-pd").value));S.payday=pd>=1&&pd<=31?pd:1;
   PSC={};curMonth=curPer();S.goal.startMonth=curMonth;
-  save();LOCK=false;closeSheet();render();toast(`Bienvenue ${me} ! Commence par encoder ton salaire 💰`);
+  save();LOCK=false;closeSheet();render();toast(`Bienvenue ${me} 💜 Ton mois démarre dès que tu encodes ton salaire`);
 }
 
 let _tt=null;
