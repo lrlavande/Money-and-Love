@@ -298,16 +298,12 @@ const DEF_CATS=[
   ["projet","Retrait pour un projet","epargne","Sorties","depense",null,"variable"],
   ["ep_v_com","Retour vers le commun","epargne","Sorties","virement","commun"]
 ];
-const PRESETS={
-  commun:{loyer:800,charges:177,internet:67,essence:600,courses:350,fun2:300,assur_h:28,mutuelle:47,pv:100,meubles:80,iptv:22.61,vacances:350},
-  marion:{assur_v:102,entretien_v:58.33,taxe_v:25,pneus:16.67,beaute:30,urgence:150,fun_perso:250},
-  bilal:{assur_v:111,entretien_v:58.33,taxe_v:25,pneus:33.33,sport:20,urgence:150,coiffeur:50,fun_perso:250}
-};
+
 function blank(){
   const m=monthOf(today());
   return {v:1,me:{id:uid(),name:""},partnerName:"",theme:"sauge",
     categories:DEF_CATS.map(([id,name,account,section,type,to,nature])=>({id,name,account,section,type,to:to||null,nature:type==="depense"?(nature||"variable"):null})),
-    budgets:{},tx:[],start:{month:m,perso:"",commun:"",epargne:""},
+    budgets:{},tx:[],start:{perso:"",commun:"",epargne:""},
     goal:{label:"Notre épargne",total:5000,monthly:200,startMonth:m,overrides:{}},
     notes:{},bank:{},partner:null};
 }
@@ -504,7 +500,7 @@ function render(){
 function monthSwitch(){
   const cur=curPer();
   const custom=hasSalary();
-  return `<div class="mswitch"><button onclick="shiftMonth(-1)" aria-label="Mois précédent">‹</button><div class="ml">${mLabel(curMonth)}${custom?`<small style="color:var(--muted);cursor:default;">${perRange(curMonth)}${curMonth>perInfo("me")[perInfo("me").length-1].key?" · en attente du salaire":""}</small>`:`<small style="color:var(--muted);cursor:default;">ton mois démarrera quand tu encodes ton salaire</small>`}${curMonth!==cur?`<small onclick="shiftMonth(0)">revenir à ce mois-ci</small>`:""}</div><button onclick="shiftMonth(1)" aria-label="Mois suivant">›</button></div>`;
+  return `<div class="mswitch"><button onclick="shiftMonth(-1)" aria-label="Mois précédent">‹</button><div class="ml">${mLabel(curMonth)}${custom?`<small style="color:var(--muted);cursor:default;">${perRange(curMonth)}${curMonth===perInfo("me")[perInfo("me").length-1].key?" · jusqu'à la prochaine paie":curMonth>perInfo("me")[perInfo("me").length-1].key?" · en attente du salaire":""}</small>`:`<small style="color:var(--muted);cursor:default;">ton mois démarrera quand tu encodes ton salaire</small>`}${curMonth!==cur?`<small onclick="shiftMonth(0)">revenir à ce mois-ci</small>`:""}</div><button onclick="shiftMonth(1)" aria-label="Mois suivant">›</button></div>`;
 }
 function shiftMonth(n){curMonth=n===0?curPer():addM(curMonth,n);render();}
 
@@ -772,7 +768,7 @@ function saveTx(){
   const newMonth=t.cat==="sal"&&t.type==="revenu"&&perStart(perOf(t.date))===t.date;
   if(perOf(t.date)!==curMonth&&(!D.id||newMonth)) curMonth=perOf(t.date);
   render();
-  toast(newMonth&&!D.id?`Salaire encodé 💰 Ton mois de ${mLabel(curMonth).split(" ")[0]} commence le ${dShort(t.date)}`:`${D.id?"Ligne modifiée":"Ajouté"} · ${t.type==="revenu"?"+":t.type==="virement"?"→ ":"−"}${fmt(t.amount)} en ${c?c.name:""}`);
+  toast(newMonth&&!D.id?`Salaire encodé 💰 Ton budget court du ${dShort(t.date)} jusqu'à ta prochaine paie (vers le ${dShort(perStart(addM(curMonth,1)))})`:`${D.id?"Ligne modifiée":"Ajouté"} · ${t.type==="revenu"?"+":t.type==="virement"?"→ ":"−"}${fmt(t.amount)} en ${c?c.name:""}`);
   if(TXRET){const r=TXRET;TXRET=null;r();}else closeSheet();
 }
 function delTx(id){
@@ -1202,12 +1198,6 @@ function openSettings(focus){
     <button class="btn danger sm" style="margin-top:8px;" onclick="removePartner()">Retirer les données de ${esc(pName())}</button>`:""}
   </div>`;
   const cut=cutOf(st);
-  html+=`<div class="card" style="box-shadow:none;"><h3>Point de départ</h3>
-    <div class="muted">Ce qu'il y avait sur les comptes le jour où tu as commencé. Tout le reste se calcule à partir de là. Les lignes datées d'avant ce jour ne changent plus les soldes (elles y sont déjà). Pour le commun et l'épargne, un seul de vous deux suffit.</div>
-    <label class="lbl">Date de départ</label><input type="date" value="${st.date||dAdd(cut.date,1)}" onchange="setStart('date',this.value)"/>
-    <label class="lbl">Mon compte à vue</label><input type="text" inputmode="decimal" value="${filled(st.perso)?st.perso:""}" placeholder="0 €" onchange="setStart('perso',this.value)"/>
-    <label class="lbl">Compte commun</label><input type="text" inputmode="decimal" value="${filled(st.commun)?st.commun:""}" placeholder="${S.partner&&filled((S.partner.start||{}).commun)?`${S.partner.start.commun} (encodé par ${esc(pName())})`:"0 €"}" onchange="setStart('commun',this.value)"/>
-    <label class="lbl">Épargne long terme</label><input type="text" inputmode="decimal" value="${filled(st.epargne)?st.epargne:""}" placeholder="${S.partner&&filled((S.partner.start||{}).epargne)?`${S.partner.start.epargne} (encodé par ${esc(pName())})`:"0 €"}" onchange="setStart('epargne',this.value)"/></div>`;
   html+=`<div class="card" style="box-shadow:none;"><h3>Sauvegarde</h3>
     <div class="muted">Le même fichier sert de sauvegarde : si tu le réimportes toi-même, l'appli te propose de restaurer tes données.</div>
     <button class="btn ghost" style="margin-top:10px;" onclick="exportData(false)">⬇ Télécharger ma sauvegarde</button>
@@ -1482,43 +1472,27 @@ function resetAll(){
 
 function onboarding(){
   LOCK=true;
-  openSheet(`<div class="sh-head"><div><h2>Bienvenue 💜</h2><div class="sh-sub">Trois infos, une seule fois, et c'est parti</div></div></div>
+  openSheet(`<div class="sh-head"><div><h2>Bienvenue 💜</h2><div class="sh-sub">Deux prénoms et c'est parti</div></div></div>
     <label class="lbl">Ton prénom</label><input id="ob-me" type="text" placeholder="ex : Marion"/>
     <label class="lbl">Prénom de ton/ta partenaire</label><input id="ob-pa" type="text" placeholder="ex : Bilal"/>
-    <label class="lbl">Ce qu'il y a sur tes comptes aujourd'hui</label>
-    <div class="goal-grid">
-      <div class="gfield full"><label>Mon compte à vue</label><input id="ob-p" type="text" inputmode="decimal" placeholder="0 €"/></div>
-      <div class="gfield"><label>Compte commun</label><input id="ob-c" type="text" inputmode="decimal" placeholder="0 €"/></div>
-      <div class="gfield"><label>Épargne long terme</label><input id="ob-e" type="text" inputmode="decimal" placeholder="0 €"/></div>
-    </div>
-    <div class="muted" style="margin-top:6px;">Regarde ton appli bancaire et recopie les soldes. Tu ne le fais qu'une fois : ensuite, tout se calcule avec ce que vous encodez. Pour le commun et l'épargne, un seul de vous deux suffit.</div>
-    <label class="lbl">Pré-remplir les budgets avec votre tableau de novembre ?</label>
-    <div class="chips" id="ob-pre">${[["marion","Oui, je suis Marion"],["bilal","Oui, je suis Bilal"],["","Non, je pars de zéro"]].map(([k,l])=>`<button type="button" class="chip${OB_PRE===k?" on":""}" onclick="obPre('${k}',this)">${l}</button>`).join("")}</div>
-    <div class="muted" style="margin-top:6px;">Ça remplit le loyer, les charges, la voiture, etc. Tout reste modifiable dans l'onglet Budget.</div>
+    <div class="muted" style="margin-top:10px;">Tout démarre à 0. Encode ton salaire puis tes dépenses du mois, et l'appli calcule le reste toute seule.</div>
     <label class="lbl">Couleur</label><div class="theme-dots">${Object.entries(THEMES).map(([k,c])=>`<button style="background:${c};" class="${S.theme===k?"on":""}" onclick="obTheme('${k}',this)" aria-label="${k}"></button>`).join("")}</div>
     <div class="err" id="ob-err"></div>
     <button class="btn" style="margin-top:18px;" onclick="obSave()">C'est parti</button>
     <button class="btn ghost" onclick="$('#imp-file').click()">J'ai déjà une sauvegarde</button>`);
 }
-let OB_PRE="";
-function obPre(k,el){OB_PRE=k;document.querySelectorAll("#ob-pre .chip").forEach(b=>b.classList.toggle("on",b===el));}
 function obTheme(k,el){S.theme=k;document.body.dataset.theme=k;document.querySelectorAll(".theme-dots button").forEach(b=>b.classList.toggle("on",b===el));}
 function obSave(){
   const me=$("#ob-me").value.trim();
   if(!me){const e=$("#ob-err");e.textContent="Dis-moi au moins ton prénom";e.classList.add("show");return;}
   S.me.name=me;S.partnerName=$("#ob-pa").value.trim();
-  const v=id=>{const x=$(id).value.trim();return x===""?"":num(x);};
-  S.start={date:today(),ts:Date.now(),perso:v("#ob-p"),commun:v("#ob-c"),epargne:v("#ob-e")};
+  S.start={perso:"",commun:"",epargne:""};
   PSC={};curMonth=curPer();S.goal.startMonth=curMonth;
-  if(OB_PRE&&PRESETS[OB_PRE]){
-    const m=curMonth,put=o=>Object.entries(o).forEach(([id,v])=>{if(myCat(id))S.budgets[id]=[{from:m,amount:v,at:Date.now()}];});
-    put(PRESETS.commun);put(PRESETS[OB_PRE]);
-  }
   save();LOCK=false;closeSheet();render();toast(`Bienvenue ${me} 💜 Ton mois démarre dès que tu encodes ton salaire`);
 }
 
 let _tt=null;
-function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove("show"),3400);}
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove("show"),Math.max(3400,m.length*65));}
 
 curMonth=curPer();
 render();
